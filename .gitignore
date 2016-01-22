@@ -1,0 +1,4 @@
+PhalconDbMock.iml
+.idea
+composer.lock
+/vendor

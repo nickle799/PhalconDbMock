@@ -1,0 +1,29 @@
+{
+  "name": "nicklewis/phalcon-db-mock",
+  "type": "library",
+  "description": "Db Mock adds a mock database that you can insert into, delete, and select from for phpunit mocks",
+  "keywords": [
+    "phpunit",
+    "phalcon"
+  ],
+  "license": "GPL-3.0",
+  "authors": [
+    {
+      "name": "Nicholas Lewis",
+      "email": "nickle799@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.5.0",
+    "ext-phalcon": ">=2.0.4 <3.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "5.0.*",
+    "phpunit/php-code-coverage": "dev-master#b8436b000263f6d72fbad1d36890e247ce84857e"
+  },
+  "autoload": {
+    "psr-0": {
+      "NickLewis\\PhalconDbMock": "Library/"
+    }
+  }
+}
