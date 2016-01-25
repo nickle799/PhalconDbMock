@@ -137,6 +137,8 @@ class Select extends Base {
         $possibleQuotes = ['"', "'"];
         if(in_array($value[0], ['"', "'"])) {
             return trim($value, implode('', $possibleQuotes));
+        } elseif(is_numeric($value)) {
+            return $value;
         } else {
             throw new DbException('Unexpected Raw Value: '.$value);
         }
