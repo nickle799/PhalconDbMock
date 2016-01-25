@@ -73,28 +73,73 @@ class Select extends Base {
         $rows = $this->getRows();
         $rows = array_filter($rows, function(Row $row) {
             $evalString = 'return ';
-            /** @var Cell|null $currentField */
-            $currentField = null;
-            $currentOperator = null;
             //TODO - if no where, always return true
-            foreach($this->getParsed()['WHERE'] as $where) {
-                switch($where['expr_type']) {
-                    case 'colref':
-                        $currentField = $this->findCell($row, $where['no_quotes']['parts']);
+            $wheres = $this->getParsed()['WHERE'];
+            while(!empty($wheres)) {
+                $colRef = array_shift($wheres);
+                if($colRef['expr_type']!='colref') {
+                    throw new DbException('Unable to parse where (unexpected expr_type for colref): '.print_r($this->getParsed()['WHERE'], true));
+                }
+                $cell = $this->findCell($row, $colRef['no_quotes']['parts']);
+                $operator = array_shift($wheres);
+                if($operator['expr_type']!='operator') {
+                    throw new DbException('Unable to parse where (unexpected expr_type for operator): '.print_r($this->getParsed()['WHERE'], true));
+                }
+                switch($operator['base_expr']) {
+                    case '=':
+                        $value = $this->parseValue(array_shift($wheres));
+                        $isTrue = $cell->getValue()==$value;
                         break;
-                    case 'operator':
-                        $currentOperator = $where['base_expr'];
+                    case 'BETWEEN':
+                        $firstValue = $this->parseValue(array_shift($wheres));
+                        array_shift($wheres); //AND
+                        $secondValue = $this->parseValue(array_shift($wheres));
+                        $isTrue = $firstValue<=$cell->getValue() && $secondValue>=$cell->getValue();
                         break;
-                    case 'const':
-                        $value = $where['base_expr'];
-                        $evalString .= $this->evaluateWhere($currentField, $currentOperator, $value)?'true':'false';
+                    default:
+                        throw new \Exception('Unhandled Operator type: '.$operator['base_expr']);
                         break;
                 }
+                $evalString .= $isTrue?'true':'false';
+                if(!empty($wheres)) {
+                    $operator = array_shift($wheres);
+                    if($operator['expr_type']!='operator') {
+                        throw new DbException('Unable to parse where (unexpected expr_type for operator): '.print_r($this->getParsed()['WHERE'], true));
+                    }
+                    switch($operator['base_expr']) {
+                        case 'AND':
+                            $evalString .= ' && ';
+                            break;
+                        case 'OR':
+                            $evalString .= ' || ';
+                            break;
+                        default:
+                            throw new DbException('Unexpected comparison: '.$operator['base_expr']);
+                            break;
+                    }
+                }
+
             }
             $evalString .= ';';
             return eval($evalString);
         });
         $this->setRows($rows);
+    }
+
+    /**
+     * parseValue
+     * @param array $where
+     * @return string
+     * @throws DbException
+     */
+    private function parseValue(array $where) {
+        $value = $where['base_expr'];
+        $possibleQuotes = ['"', "'"];
+        if(in_array($value[0], ['"', "'"])) {
+            return trim($value, implode('', $possibleQuotes));
+        } else {
+            throw new DbException('Unexpected Raw Value: '.$value);
+        }
     }
 
     /**
@@ -106,28 +151,14 @@ class Select extends Base {
         foreach($this->getRows() as $row) {
             $cells = [];
             foreach($this->getParsed()['SELECT'] as $sqlColumn) { //TODO - cell alias
-                $cells[] = $this->findCell($row, $sqlColumn['no_quotes']['parts']);
+                $newCells = $this->findCell($row, $sqlColumn['no_quotes']['parts']);
+                if(is_array($newCells)) {
+                    $cells = array_merge($cells, $newCells);
+                } else {
+                    $cells[] = $newCells;
+                }
             }
             $row->setCells($cells);
-        }
-    }
-
-    /**
-     * evaluateWhere
-     * @param Cell $cell
-     * @param      $operator
-     * @param      $value
-     * @return bool
-     * @throws \Exception
-     */
-    private function evaluateWhere(Cell $cell, $operator, $value) {
-        switch($operator) {
-            case '=':
-                return $cell->getValue()==$value;
-                break;
-            default:
-                throw new \Exception('Operator not handled yet: '.$operator);
-                break;
         }
     }
 
@@ -135,17 +166,25 @@ class Select extends Base {
      * findCell
      * @param Row      $row
      * @param string[] $parts
-     * @return Cell
+     * @return Cell|Cell[]
      * @throws DbException
      */
     private function findCell(Row $row, array $parts) {
-        list($tableName, $cellName) = $parts;
+        $cellName = array_pop($parts);
+        $tableName = array_pop($parts);
+        $returnVar = [];
         foreach($row->getCells() as $cell) {
-            if($cell->getCellName()==$cellName && in_array($tableName, [$cell->getAlias(), $cell->getTableName()])) {
-                return $cell;
+            if(($cellName=='*' || $cell->getCellName()==$cellName) && (is_null($tableName) || in_array($tableName, [$cell->getAlias(), $cell->getTableName()]))) {
+                $returnVar[] = $cell;
             }
         }
-        throw new DbException('Select: Could not find cell: '.implode('.', $parts));
+        if(empty($returnVar)) {
+            throw new DbException('Select: Could not find cell: ' . implode('.', $parts));
+        } elseif(count($returnVar)==1) {
+            return $returnVar[0];
+        } else {
+            return $returnVar;
+        }
     }
 
     /**
