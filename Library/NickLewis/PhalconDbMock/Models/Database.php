@@ -38,12 +38,12 @@ class Database {
 
     /**
      * getTable
-     * @param $name
-     * @return false|Table
+     * @param string $name
+     * @return Table
      */
     public function getTable($name) {
         if(!array_key_exists($name, $this->getTables())) {
-            return false;
+            throw new DbException('Table not found: '.$name);
         }
         return $this->getTables()[$name];
     }
