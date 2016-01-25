@@ -81,7 +81,6 @@ class Table {
         //TODO - unique constraint
         $columns = $this->getColumns();
         $actualData = [];
-        //TODO - auto increment
         foreach($columns as $column) {
             $value = $column->getDefault();
             if(array_key_exists($column->getName(), $data)) {

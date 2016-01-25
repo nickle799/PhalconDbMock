@@ -1,7 +1,10 @@
 <?php
 namespace NickLewis\PhalconDbMock\Services;
 use NickLewis\PhalconDbMock\Models\Database;
+use NickLewis\PhalconDbMock\Models\DbException;
+use NickLewis\PhalconDbMock\Models\ResultSet;
 use NickLewis\PhalconDbMock\Services\Parsers\Insert;
+use NickLewis\PhalconDbMock\Services\Parsers\Select;
 use Phalcon\Db\Adapter;
 use Phalcon\Db\AdapterInterface;
 use Phalcon\Db\ColumnInterface;
@@ -18,6 +21,7 @@ use Phalcon\Db\sqlQuery;
 use Phalcon\Db\table;
 use Phalcon\Db\whereCondition;
 use Phalcon\Di\InjectionAwareInterface;
+use PHPSQLParser\PHPSQLParser;
 
 class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInterface {
     use DependencyInjection;
@@ -416,8 +420,7 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
      * @return DialectInterface
      */
     public function getDialect() {
-        error_log('TODO - change this to custom dialect');
-        return new MySQL(); //TODO - change this to custom dialect
+        return new MySQL();
     }
 
     /**
@@ -442,7 +445,49 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
      * @return bool|ResultInterface
      */
     public function query($sqlStatement, $placeholders = null, $dataTypes = null) {
-        throw new \Exception('To Implement: '.__CLASS__.'::'.__FUNCTION__);// TODO: Implement query() method.
+        if(!is_null($placeholders)) {
+            $sql = $this->replaceParams($sqlStatement, $placeholders);
+        } else {
+            $sql = $sqlStatement;
+        }
+
+        $parser = new PHPSQLParser();
+        $parsed = $parser->parse($sql);
+
+        $type = array_keys($parsed)[0];
+        switch($type) {
+            case 'SELECT':
+                $insert = new Select($this->getDatabase());
+                $result = $insert->process($parsed);
+                break;
+            default:
+                throw new DbException('DbAdapter: Query Type not allowed: '.$type);
+                break;
+        }
+        return new ResultSet($this, $result, $sqlStatement, $placeholders);
+    }
+
+    private function mysqlEscapeString($value) {
+        $search = array("\\",  "\x00", "\n",  "\r",  "'",  '"', "\x1a");
+        $replace = array("\\\\","\\0","\\n", "\\r", '\'', '\"', "\\Z");
+
+        return "'".str_replace($search, $replace, $value)."'";
+    }
+
+    /**
+     * replaceParams
+     * @param       $sql
+     * @param array $params
+     * @return string
+     */
+    private function replaceParams($sql, array $params) {
+        foreach($params as $key=>$value) {
+            if(is_numeric($key)) {
+                $strPos = strPos($sql, '?');
+                $sql = substr($sql, 0, $strPos).$this->mysqlEscapeString($value).substr($sql, $strPos+1);
+            }
+        }
+        return $sql;
     }
 
     /**
@@ -455,15 +500,21 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
      * @return bool
      */
     public function execute($sqlStatement, $placeholders = null, $dataTypes = null) {
-        if(is_null($placeholders)) {
-            $placeholders = [];
+        if(!is_null($placeholders)) {
+            $sqlStatement = $this->replaceParams($sqlStatement, $placeholders);
         }
-        $sqlStatement = trim($sqlStatement);
-        if(preg_match('@^INSERT\s+INTO\s+@i', $sqlStatement)) {
-            $parser = new Insert($this->getDatabase());
-            $parser->parse($sqlStatement, $placeholders);
-        } else {
-            throw new \Exception('To Implement: '.__CLASS__.'::'.__FUNCTION__);// TODO: Implement affectedRows() method.
+        $parser = new PHPSQLParser();
+        $parsed = $parser->parse($sqlStatement);
+
+        $type = array_keys($parsed)[0];
+        switch($type) {
+            case 'INSERT':
+                $insert = new Insert($this->getDatabase());
+                $insert->process($parsed);
+                break;
+            default:
+                throw new DbException('DbAdapter: Execute Type not allowed: '.$type);
+                break;
         }
         return true;
     }

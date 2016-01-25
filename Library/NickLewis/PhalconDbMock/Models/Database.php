@@ -7,12 +7,14 @@ class Database {
     private $tables = [];
     /** @var  int */
     private $lastInsertId;
+    private $random;
 
     /**
      * Database constructor.
      * @param \string[] $descriptor
      */
     public function __construct(array $descriptor) {
+        $this->random = rand(1,100000);
         $this->setDescriptor($descriptor);
     }
 

@@ -5,6 +5,8 @@ use NickLewis\PhalconDbMock\Models\Database;
 abstract class Base {
     /** @var  Database */
     private $database;
+    /** @var  array */
+    private $parsed;
 
     /**
      * Parser constructor.
@@ -16,11 +18,12 @@ abstract class Base {
 
     /**
      * parse
-     * @param string $sql
-     * @param array  $params
-     * @return bool
+     * @param array $parsed
+     * @return ResultInterface
      */
-    abstract public function parse($sql, array $params);
+    public function process(array $parsed) {
+        $this->setParsed($parsed);
+    }
 
     /**
      * @return Database
@@ -37,6 +40,25 @@ abstract class Base {
         $this->database = $database;
         return $this;
     }
+
+    /**
+     * Getter
+     * @return array
+     */
+    public function getParsed() {
+        return $this->parsed;
+    }
+
+    /**
+     * Setter
+     * @param array $parsed
+     * @return Base
+     */
+    public function setParsed(array $parsed) {
+        $this->parsed = $parsed;
+        return $this;
+    }
+
 
 
 }

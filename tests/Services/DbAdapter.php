@@ -5,6 +5,7 @@ use NickLewis\PhalconDbMock\Models\Table;
 use NickLewis\PhalconDbMock\Services\DbAdapter;
 use NickLewis\PhalconDbMock\Services\DependencyInjection;
 use Phalcon\Db\Column;
+use Phalcon\Di\FactoryDefault;
 use Phalcon\Di\InjectionAwareInterface;
 use Phalcon\Mvc\Model;
 use PHPUnit_Framework_MockObject_MockObject;
@@ -49,15 +50,45 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
     protected function setUp() {
         parent::setUp();
         $dbAdapter = $this->getDbAdaptor();
-        $this->getDi()->set('db', $dbAdapter);
+        if($this->getDi()->has('db')) {
+            $this->getDi()->remove('db');
+        }
+        $this->getDi()->setShared('db', $dbAdapter);
+    }
+
+    public function testFindFirst() {
+        //Arrange
+        $this->createTable();
+
+        $model = new MockModel();
+        $model->setColumnA('awesome');
+        $model->setColumnB('sauce');
+        $model->save();
+
+        $model2 = new MockModel();
+        $model2->setColumnA('awesomer');
+        $model2->setColumnB('saucer');
+        $model2->save();
+
+        //Actual
+        /** @var MockModel|false $actualModel */
+        $actualModel = MockModel::findFirst(1);
+        /** @var MockModel|false $actualerModel */
+        $actualerModel = MockModel::findFirst(2);
+
+        //Assert
+        $this->assertTrue($actualModel instanceof MockModel);
+        $this->assertEquals($model->getId(), $actualModel->getId());
+        $this->assertTrue($actualerModel instanceof MockModel);
+        $this->assertEquals($model2->getId(), $actualerModel->getId());
     }
 
     /**
-     * testInsert
+     * createTable
      * @return void
      * @throws \NickLewis\PhalconDbMock\Models\DbException
      */
-    public function testInsert() {
+    private function createTable() {
         /** @var DbAdapter $dbAdapter */
         $dbAdapter = $this->getDi()->get('db');
         $table = new Table($dbAdapter->getDatabase(), 'MockModel');
@@ -75,6 +106,17 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
             'primary' => FALSE
         ]));
         $dbAdapter->getDatabase()->addTable($table);
+    }
+
+    /**
+     * testInsert
+     * @return void
+     * @throws \NickLewis\PhalconDbMock\Models\DbException
+     */
+    public function testInsert() {
+        $this->createTable();
+        /** @var DbAdapter $dbAdapter */
+        $dbAdapter = $this->getDi()->get('db');
 
         $model = new MockModel();
         $model->setColumnA('awesome');
