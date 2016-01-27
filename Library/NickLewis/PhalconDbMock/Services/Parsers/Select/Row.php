@@ -2,7 +2,7 @@
 namespace NickLewis\PhalconDbMock\Services\Parsers\Select;
 class Row {
     /** @var  Cell[] */
-    private $cells;
+    private $cells = [];
 
     /**
      * Getter
@@ -10,6 +10,17 @@ class Row {
      */
     public function getCells() {
         return $this->cells;
+    }
+
+    /**
+     * addCell
+     * @param Cell $cell
+     * @return void
+     */
+    public function addCell(Cell $cell) {
+        $cells = $this->getCells();
+        $cells[] = $cell;
+        $this->setCells($cells);
     }
 
     /**

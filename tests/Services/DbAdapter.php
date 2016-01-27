@@ -56,6 +56,24 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
         $this->getDi()->setShared('db', $dbAdapter);
     }
 
+    public function testJoin_noWhere() {
+        //Arrange
+        $this->createTable();
+        $this->createJoinTable();
+
+        /** @var DbAdapter $dbAdapter */
+        $dbAdapter = $this->getDi()->get('db');
+
+        $dbAdapter->execute('INSERT INTO MockModel (columnA, columnB) VALUES (?, ?),(?, ?),(?, ?)', ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']);
+        $dbAdapter->execute('INSERT INTO MockModelJoin (mockModelJoinId, columnB) VALUES (?, ?)', ['2', 'golf']);
+
+        //Act
+        $result = $dbAdapter->query('SELECT a.columnB aB, b.columnB AS bB FROM MockModel a JOIN MockModelJoin AS b ON (a.id=b.mockModelJoinId)');
+
+        //Assert
+        $this->assertEquals([['aB'=>'delta', 'bB'=>'golf']], $result->getInternalResult()->getRows());
+    }
+
     public function testFindFirst() {
         //Arrange
         $this->createTable();
@@ -99,6 +117,31 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
         ]));
         $table->addColumn(new Column('columnA', [
             'type' => Column::TYPE_VARCHAR,
+            'primary' => FALSE
+        ]));
+        $table->addColumn(new Column('columnB', [
+            'type' => Column::TYPE_VARCHAR,
+            'primary' => FALSE
+        ]));
+        $dbAdapter->getDatabase()->addTable($table);
+    }
+
+    /**
+     * createJoinTable
+     * @return void
+     * @throws \NickLewis\PhalconDbMock\Models\DbException
+     */
+    private function createJoinTable() {
+        /** @var DbAdapter $dbAdapter */
+        $dbAdapter = $this->getDi()->get('db');
+        $table = new Table($dbAdapter->getDatabase(), 'MockModelJoin');
+        $table->addColumn(new Column('id', [
+            'type' => Column::TYPE_INTEGER,
+            'primary' => TRUE,
+            'autoIncrement' => TRUE
+        ]));
+        $table->addColumn(new Column('mockModelJoinId', [
+            'type' => Column::TYPE_INTEGER,
             'primary' => FALSE
         ]));
         $table->addColumn(new Column('columnB', [
