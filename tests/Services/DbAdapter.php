@@ -71,9 +71,13 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
         $result = $dbAdapter->query('SELECT a.columnB aB, b.columnB AS bB FROM MockModel a JOIN MockModelJoin AS b ON (a.id=b.mockModelJoinId)');
 
         //Assert
-        $this->assertEquals([['aB'=>'delta', 'bB'=>'golf']], $result->getInternalResult()->getRows());
+        $this->assertEquals([['aB'=>'delta', 'bB'=>'golf']], $result->fetchAll());
     }
 
+    /**
+     * testFindFirst
+     * @return void
+     */
     public function testFindFirst() {
         //Arrange
         $this->createTable();
