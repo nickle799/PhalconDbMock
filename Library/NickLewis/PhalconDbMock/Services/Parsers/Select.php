@@ -71,9 +71,19 @@ class Select extends Base {
                     $localRow = $this->findTableRow($row, $localRows, $joinExpr);
                     if($localRow===false) {
                         //Could not join on table
-                        //TODO - OUTER JOINS
-                        unset($rows[$rowKey]);
-                        continue;
+                        if($from['join_type']=='LEFT') {
+                            foreach($table->getColumns() as $tableColumn) {
+                                $cell = new Cell();
+                                $cell->setAlias($alias);
+                                $cell->setCellName($tableColumn->getName());
+                                $cell->setTableName($table->getName());
+                                $cell->setValue(null);
+                                $row->addCell($cell);
+                            }
+                        } else {
+                            unset($rows[$rowKey]);
+                            continue;
+                        }
                     } else {
                         foreach($localRow->getCells() as $cell) {
                             $row->addCell($cell);
