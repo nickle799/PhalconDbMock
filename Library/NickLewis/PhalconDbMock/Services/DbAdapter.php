@@ -122,7 +122,7 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
      * @return bool
      */
     public function tableExists($tableName, $schemaName = null) {
-        return $this->getDatabase()->getTable($tableName)!==false;
+        return array_key_exists($tableName, $this->getDatabase()->getTables());
     }
 
     /**
