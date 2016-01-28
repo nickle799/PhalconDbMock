@@ -85,11 +85,15 @@ class Table {
             $value = $column->getDefault();
             if(array_key_exists($column->getName(), $data)) {
                 $value = $data[$column->getName()];
+                unset($data[$column->getName()]); //Use up column
             }
             if(is_null($value) && $column->isAutoIncrement()) {
                 $value = $this->getNextAutoIncrementValue();
             }
             $actualData[$column->getName()] = $value;
+        }
+        if(!empty($data)) {
+            throw new DbException('Could not find the following columns ('.$this->getName().'): '.implode(', ', array_keys($data)));
         }
         $row = new Row($actualData);
         $rows = $this->getRows();

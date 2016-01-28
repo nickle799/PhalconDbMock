@@ -138,6 +138,9 @@ class Select extends Base {
             case 'colref':
                 return $this->findCell($row, $where['no_quotes']['parts'])->getValue();
                 break;
+            case 'bracket_expression':
+                return $this->evalWhere($row, $where['sub_tree']);
+                break;
             default:
                 throw new DbException('Unable to parse value for: '.print_r($where, true));
                 break;
@@ -158,25 +161,63 @@ class Select extends Base {
         $originalWheres = $wheres;
         while(!empty($wheres)) {
             $colRef = array_shift($wheres);
-            $comparisonValue = $this->getValue($row, $colRef);
-            $operator = array_shift($wheres);
-            if($operator['expr_type']!='operator') {
-                throw new DbException('Unable to parse where (unexpected expr_type for operator): '.print_r($originalWheres, true));
-            }
-            switch($operator['base_expr']) {
-                case '=':
-                    $value = $this->parseValue($row, array_shift($wheres));
-                    $isTrue = $comparisonValue==$value;
-                    break;
-                case 'BETWEEN':
-                    $firstValue = $this->parseValue($row, array_shift($wheres));
-                    array_shift($wheres); //AND
-                    $secondValue = $this->parseValue($row, array_shift($wheres));
-                    $isTrue = $firstValue<=$comparisonValue && $secondValue>=$comparisonValue;
-                    break;
-                default:
-                    throw new \Exception('Unhandled Operator type: '.$operator['base_expr']);
-                    break;
+            if($colRef['expr_type']=='bracket_expression') {
+                $isTrue = $this->getValue($row, $colRef);
+            } else {
+                $comparisonValue = $this->getValue($row, $colRef);
+                $operator = array_shift($wheres);
+                if ($operator['expr_type'] != 'operator') {
+                    throw new DbException('Unable to parse where (unexpected expr_type for operator): ' . print_r($originalWheres, true));
+                }
+                switch ($operator['base_expr']) {
+                    case '=':
+                        $value = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $comparisonValue == $value;
+                        break;
+                    case '<=':
+                        $value = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $comparisonValue <= $value;
+                        break;
+                    case '<':
+                        $value = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $comparisonValue < $value;
+                        break;
+                    case '>=':
+                        $value = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $comparisonValue >= $value;
+                        break;
+                    case '>':
+                        $value = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $comparisonValue > $value;
+                        break;
+                    case 'BETWEEN':
+                        $firstValue = $this->parseValue($row, array_shift($wheres));
+                        array_shift($wheres); //AND
+                        $secondValue = $this->parseValue($row, array_shift($wheres));
+                        $isTrue = $firstValue <= $comparisonValue && $secondValue >= $comparisonValue;
+                        break;
+                    case 'IS':
+                        $nextOperator = array_shift($wheres);
+                        $isNot = false;
+                        if ($nextOperator['base_expr'] == 'NOT') {
+                            $isNot = true;
+                            $nextOperator = array_shift($wheres);
+                        }
+                        if ($nextOperator['expr_type'] != 'const') {
+                            throw new DbException('Unexpected Where: ' . print_r($nextOperator, true));
+                        }
+                        if ($nextOperator['base_expr'] != 'NULL') {
+                            throw new DbException('Unexpected Value other than null: ' . print_r($nextOperator, true));
+                        }
+                        $isTrue = is_null($comparisonValue);
+                        if ($isNot) {
+                            $isTrue = !$isTrue;
+                        }
+                        break;
+                    default:
+                        throw new \Exception('Unhandled Operator type: ' . $operator['base_expr']);
+                        break;
+                }
             }
             $evalString .= $isTrue?'true':'false';
             if(!empty($wheres)) {
