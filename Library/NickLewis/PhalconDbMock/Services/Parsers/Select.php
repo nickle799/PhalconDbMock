@@ -8,19 +8,45 @@ use NickLewis\PhalconDbMock\Services\Parsers\Select\Row;
 class Select extends Base {
     /** @var  Row[] */
     private $rows;
+    /** @var  Row|null */
+    private $subQueryRow;
 
     /**
      * parse
      * @param array $parsed
+     * @param Row|null $subQueryRow
      * @return PDOStatement
      */
-    public function process(array $parsed) {
+    public function process(array $parsed, Row $subQueryRow=null) {
+        if(!is_null($subQueryRow)) {
+            $this->setSubQueryRow($subQueryRow);
+        }
         parent::process($parsed);
         $this->loadModels();
         $this->filterWhere();
         $this->filterCells();
         return new PDOStatement($this->buildResults());
     }
+
+    /**
+     * Getter
+     * @return Row|null
+     */
+    public function getSubQueryRow() {
+        return $this->subQueryRow;
+    }
+
+    /**
+     * Setter
+     * @param Row|null $subQueryRow
+     * @return Select
+     */
+    public function setSubQueryRow(Row $subQueryRow) {
+        $this->subQueryRow = $subQueryRow;
+        return $this;
+    }
+
+
 
     /**
      * buildResults
@@ -163,6 +189,25 @@ class Select extends Base {
             $colRef = array_shift($wheres);
             if($colRef['expr_type']=='bracket_expression') {
                 $isTrue = $this->getValue($row, $colRef);
+            } elseif($colRef['expr_type']=='reserved' || $colRef['expr_type']=='operator') {
+                $isNot = false;
+                if($colRef['base_expr']=='NOT') {
+                    $isNot = true;
+                    $colRef = array_shift($wheres);
+                }
+                if($colRef['base_expr']!='EXISTS') {
+                    throw new DbException('Could not handle reserved: '.print_r($colRef, true));
+                }
+                $subQuery = array_shift($wheres);
+                if($subQuery['expr_type']!='subquery') {
+                    throw new DbException('Invalid After EXISTS: '.$subQuery['expr_type']);
+                }
+                $subSelect = new Select($this->getDatabase());
+                $result = $subSelect->process($subQuery['sub_tree'], $row);
+                $isTrue = !empty($result->getRows());
+                if ($isNot) {
+                    $isTrue = !$isTrue;
+                }
             } else {
                 $comparisonValue = $this->getValue($row, $colRef);
                 $operator = array_shift($wheres);
@@ -286,11 +331,25 @@ class Select extends Base {
         foreach($this->getRows() as $row) {
             $cells = [];
             foreach($this->getParsed()['SELECT'] as $sqlColumn) { //TODO - cell alias
-                $newCells = $this->findCell($row, $sqlColumn['no_quotes']['parts'], $sqlColumn['alias']);
-                if(is_array($newCells)) {
-                    $cells = array_merge($cells, $newCells);
+                if($sqlColumn['expr_type']=='const') {
+                    $cell = new Cell();
+                    $value = trim($sqlColumn['base_expr'], '"\'');
+                    if($sqlColumn['alias']!==false) {
+                        $cell->setCellAlias($sqlColumn['alias']);
+                    }
+                    $cell->setValue($value);
+                    $cell->setCellName($value);
+                    $cells[] = $cell;
                 } else {
-                    $cells[] = $newCells;
+                    if($sqlColumn['base_expr']=='*') {
+                        $sqlColumn['no_quotes']['parts'] = ['*'];
+                    }
+                    $newCells = $this->findCell($row, $sqlColumn['no_quotes']['parts'], $sqlColumn['alias']);
+                    if (is_array($newCells)) {
+                        $cells = array_merge($cells, $newCells);
+                    } else {
+                        $cells[] = $newCells;
+                    }
                 }
             }
             $row->setCells($cells);
@@ -306,6 +365,7 @@ class Select extends Base {
      * @throws DbException
      */
     private function findCell(Row $row, array $parts, $alias=false) {
+        $originalParts = $parts;
         $cellName = array_pop($parts);
         $tableName = array_pop($parts);
         $returnVar = [];
@@ -317,8 +377,19 @@ class Select extends Base {
                 $returnVar[] = $cell;
             }
         }
+        if(!is_null($this->getSubQueryRow())) {
+            $row = $this->getSubQueryRow();
+            foreach($row->getCells() as $cell) {
+                if(($cellName=='*' || $cell->getCellName()==$cellName) && (is_null($tableName) || in_array($tableName, [$cell->getAlias(), $cell->getTableName()]))) {
+                    if($alias!==false) {
+                        $cell->setCellAlias($alias['no_quotes']['parts'][0]);
+                    }
+                    $returnVar[] = $cell;
+                }
+            }
+        }
         if(empty($returnVar)) {
-            throw new DbException('Select: Could not find cell: ' . implode('.', $parts));
+            throw new DbException('Select: Could not find cell: ' . implode('.', $originalParts));
         } elseif(count($returnVar)==1) {
             return $returnVar[0];
         } else {

@@ -1,6 +1,7 @@
 <?php
 namespace NickLewis\PhalconDbMock\Services\Parsers;
 use NickLewis\PhalconDbMock\Models\Database;
+use Phalcon\Db\ResultInterface;
 
 abstract class Base {
     /** @var  Database */

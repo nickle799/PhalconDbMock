@@ -8,9 +8,7 @@ use Phalcon\Db\Column;
 use Phalcon\Di\FactoryDefault;
 use Phalcon\Di\InjectionAwareInterface;
 use Phalcon\Mvc\Model;
-use PHPUnit_Framework_MockObject_MockObject;
 use PHPUnit_Framework_TestCase;
-use ReflectionClass;
 
 class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAwareInterface {
     use DependencyInjection;
@@ -54,6 +52,29 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
             $this->getDi()->remove('db');
         }
         $this->getDi()->setShared('db', $dbAdapter);
+    }
+
+    /**
+     * testSubQuery
+     * @return void
+     * @throws \NickLewis\PhalconDbMock\Models\DbException
+     */
+    public function testSubQuery() {
+        //Arrange
+        $this->createTable();
+        $this->createJoinTable();
+
+        /** @var DbAdapter $dbAdapter */
+        $dbAdapter = $this->getDi()->get('db');
+
+        $dbAdapter->execute('INSERT INTO MockModel (columnA, columnB) VALUES (?, ?),(?, ?),(?, ?)', ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']);
+        $dbAdapter->execute('INSERT INTO MockModelJoin (mockModelJoinId, columnB) VALUES (?, ?)', ['2', 'golf']);
+
+        //Act
+        $result = $dbAdapter->query('SELECT * FROM MockModel a WHERE NOT EXISTS(SELECT 1 FROM MockModelJoin b WHERE a.id=b.mockModelJoinId)');
+
+        //Assert
+        $this->assertEquals([['id'=>1,'columnA'=>'alpha', 'columnB'=>'bravo'],['id'=>3,'columnA'=>'echo', 'columnB'=>'foxtrot']], $result->fetchAll());
     }
 
     /**
