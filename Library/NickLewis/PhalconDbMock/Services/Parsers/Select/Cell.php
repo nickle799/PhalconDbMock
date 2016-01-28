@@ -9,6 +9,30 @@ class Cell {
     private $cellName;
     /** @var  string */
     private $value;
+    /** @var  string */
+    private $cellAlias;
+
+    /**
+     * Getter
+     * @return string
+     */
+    public function getCellAlias() {
+        if(is_null($this->cellAlias)) {
+            return $this->getCellName();
+        }
+        return $this->cellAlias;
+    }
+
+    /**
+     * Setter
+     * @param string $cellAlias
+     * @return Cell
+     */
+    public function setCellAlias($cellAlias) {
+        $this->cellAlias = $cellAlias;
+        return $this;
+    }
+
 
     /**
      * Getter
