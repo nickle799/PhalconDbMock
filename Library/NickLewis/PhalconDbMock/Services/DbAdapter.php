@@ -483,9 +483,12 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
     private function replaceParams($sql, array $params) {
         foreach($params as $key=>$value) {
             if(is_numeric($key)) {
-                $strPos = strPos($sql, '?');
-                $sql = substr($sql, 0, $strPos).$this->mysqlEscapeString($value).substr($sql, $strPos+1);
+                $search = '?';
+            } else {
+                $search = ':'.$key;
             }
+            $strPos = strPos($sql, $search);
+            $sql = substr($sql, 0, $strPos).$this->mysqlEscapeString($value).substr($sql, $strPos+strlen($search));
         }
         return $sql;
     }

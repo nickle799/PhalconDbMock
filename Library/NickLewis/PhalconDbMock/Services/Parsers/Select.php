@@ -48,7 +48,7 @@ class Select extends Base {
         $rows = [];
         foreach($parsed['FROM'] as $key=>$from) {
             $tableName = $from['no_quotes']['parts'][0];
-            $alias = $from['alias']['name'];
+            $alias = trim($from['alias']['name'], '`');
             $table = $this->getDatabase()->getTable($tableName);
             $localRows = [];
             foreach($table->getRows() as $tableRow) {
@@ -67,7 +67,12 @@ class Select extends Base {
                 $rows = $localRows;
             } else {
                 foreach($rows as $rowKey=>$row) {
-                    $joinExpr = $from['ref_clause'][0]['sub_tree'];
+                    if(count($from['ref_clause'])==1) { //On wrapped in parenthesis
+                        $joinExpr = $from['ref_clause'][0]['sub_tree'];
+                    } else {
+                        $joinExpr = $from['ref_clause'];
+                    }
+
                     $localRow = $this->findTableRow($row, $localRows, $joinExpr);
                     if($localRow===false) {
                         //Could not join on table
@@ -119,6 +124,28 @@ class Select extends Base {
     }
 
     /**
+     * getValue
+     * @param Row   $row
+     * @param array $where
+     * @return string
+     * @throws DbException
+     */
+    private function getValue(Row $row, array $where) {
+        switch($where['expr_type']) {
+            case 'const':
+                return trim($where['base_expr'], '"\'');
+                break;
+            case 'colref':
+                return $this->findCell($row, $where['no_quotes']['parts'])->getValue();
+                break;
+            default:
+                throw new DbException('Unable to parse value for: '.print_r($where, true));
+                break;
+
+        }
+    }
+
+    /**
      * evalWhere
      * @param Row   $row
      * @param array $wheres
@@ -131,10 +158,7 @@ class Select extends Base {
         $originalWheres = $wheres;
         while(!empty($wheres)) {
             $colRef = array_shift($wheres);
-            if($colRef['expr_type']!='colref') {
-                throw new DbException('Unable to parse where (unexpected expr_type for colref): '.print_r($originalWheres, true));
-            }
-            $cell = $this->findCell($row, $colRef['no_quotes']['parts']);
+            $comparisonValue = $this->getValue($row, $colRef);
             $operator = array_shift($wheres);
             if($operator['expr_type']!='operator') {
                 throw new DbException('Unable to parse where (unexpected expr_type for operator): '.print_r($originalWheres, true));
@@ -142,13 +166,13 @@ class Select extends Base {
             switch($operator['base_expr']) {
                 case '=':
                     $value = $this->parseValue($row, array_shift($wheres));
-                    $isTrue = $cell->getValue()==$value;
+                    $isTrue = $comparisonValue==$value;
                     break;
                 case 'BETWEEN':
                     $firstValue = $this->parseValue($row, array_shift($wheres));
                     array_shift($wheres); //AND
                     $secondValue = $this->parseValue($row, array_shift($wheres));
-                    $isTrue = $firstValue<=$cell->getValue() && $secondValue>=$cell->getValue();
+                    $isTrue = $firstValue<=$comparisonValue && $secondValue>=$comparisonValue;
                     break;
                 default:
                     throw new \Exception('Unhandled Operator type: '.$operator['base_expr']);

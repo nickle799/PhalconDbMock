@@ -79,6 +79,29 @@ class DbAdapterTest extends PHPUnit_Framework_TestCase implements InjectionAware
         $this->assertEquals([['aB'=>'delta', 'bB'=>null]], $result->fetchAll());
     }
 
+    /**
+     * testOuterJoin
+     * @return void
+     * @throws \NickLewis\PhalconDbMock\Models\DbException
+     */
+    public function testOuterJoin_onNoParenthesis() {
+        //Arrange
+        $this->createTable();
+        $this->createJoinTable();
+
+        /** @var DbAdapter $dbAdapter */
+        $dbAdapter = $this->getDi()->get('db');
+
+        $dbAdapter->execute('INSERT INTO MockModel (columnA, columnB) VALUES (?, ?),(?, ?),(?, ?)', ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']);
+        $dbAdapter->execute('INSERT INTO MockModelJoin (mockModelJoinId, columnB) VALUES (?, ?)', ['5', 'golf']);
+
+        //Act
+        $result = $dbAdapter->query('SELECT a.columnB aB, b.columnB AS bB FROM MockModel a LEFT OUTER JOIN MockModelJoin AS b ON a.id=b.mockModelJoinId WHERE a.id=2');
+
+        //Assert
+        $this->assertEquals([['aB'=>'delta', 'bB'=>null]], $result->fetchAll());
+    }
+
     public function testJoin_noWhere() {
         //Arrange
         $this->createTable();
