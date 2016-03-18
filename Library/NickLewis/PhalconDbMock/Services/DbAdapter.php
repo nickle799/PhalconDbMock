@@ -485,7 +485,10 @@ class DbAdapter extends Adapter implements AdapterInterface, InjectionAwareInter
             if(is_numeric($key)) {
                 $search = '?';
             } else {
-                $search = ':'.$key;
+                $search = $key;
+                if($search[0] != ':') {
+                    $search = ':' . $search;
+                }
             }
             $strPos = strPos($sql, $search);
             $sql = substr($sql, 0, $strPos).$this->mysqlEscapeString($value).substr($sql, $strPos+strlen($search));
