@@ -21,6 +21,7 @@ use Phalcon\Db\sqlQuery;
 use Phalcon\Db\table;
 use Phalcon\Db\whereCondition;
 use Phalcon\Di\InjectionAwareInterface;
+use Phalcon\Version;
 use PHPSQLParser\PHPSQLParser;
 
 abstract class DbAdapterVersion extends Adapter implements AdapterInterface, InjectionAwareInterface {
@@ -735,8 +736,7 @@ abstract class DbAdapterVersion extends Adapter implements AdapterInterface, Inj
     }
 }
 
-list($majorC, $minorC, $editC) = preg_split('/[\/.-]/', \Phalcon\Version::get());
-if($majorC>=3) {
+if(Version::getPart(Version::VERSION_MAJOR)>=3) {
     class DbAdapter extends DbAdapterVersion {
 
         /**
