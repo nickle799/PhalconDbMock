@@ -1098,7 +1098,7 @@ abstract class Model implements \Phalcon\Mvc\EntityInterface, \Phalcon\Mvc\Model
      * @param array $data
      * @param array $columnMap
      */
-    public function setSnapshotData($data, $columnMap = null) {
+    public function setSnapshotData(array $data, $columnMap = null) {
     }
 
     /**
