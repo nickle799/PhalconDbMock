@@ -312,7 +312,7 @@ interface ModelInterface {
      * @param array $data
      * @param array $columnMap
      */
-    public function setSnapshotData($data, $columnMap = null);
+    public function setSnapshotData(array $data, $columnMap = null);
 
     /**
      * Reset a model instance data
