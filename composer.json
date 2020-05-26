@@ -16,7 +16,7 @@
   "require": {
     "php": ">=5.5.0",
     "ext-phalcon": ">=2.0.4 <3.9",
-    "greenlion/php-sql-parser": "4.0.0"
+    "greenlion/php-sql-parser": "4.3.0"
   },
   "require-dev": {
     "phpunit/phpunit": "5.0.*",
